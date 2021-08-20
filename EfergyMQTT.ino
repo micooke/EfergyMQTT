@@ -136,20 +136,20 @@ void setup() {
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
         configFile.readBytes(buf.get(), size); //Save contents of config file into buf
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject& json = jsonBuffer.parseObject(buf.get()); //Decode the config file into JSON config
-        if (json.success()) {
+        DynamicJsonDocument jsonBuffer(1024);
+        auto error = deserializeJson(jsonBuffer, buf.get()); //Decode the config file into JSON config
+        if (!error) {
           Serial.println("JSON Read OK.");
-          if (DEBUG) { json.printTo(Serial); Serial.println(""); }
+          if (DEBUG) { serializeJson(jsonBuffer, Serial); Serial.println(""); }
           //Copy our parameters into arrays
-          if (json.containsKey("mqtt_server")) { strcpy(mqtt_server, json["mqtt_server"]); }
-          if (json.containsKey("mqtt_port")) { strcpy(mqtt_port, json["mqtt_port"]); }
-          if (json.containsKey("mqtt_username")) { strcpy(mqtt_username, json["mqtt_username"]); }
-          if (json.containsKey("mqtt_password")) { strcpy(mqtt_password, json["mqtt_password"]); }
-          if (json.containsKey("mqtt_clientname")) { strcpy(mqtt_clientname, json["mqtt_clientname"]); }
-          if (json.containsKey("mqtt_willtopic")) { strcpy(mqtt_willtopic, json["mqtt_willtopic"]); }
-          if (json.containsKey("mqtt_efergytopic")) { strcpy(mqtt_efergytopic, json["mqtt_efergytopic"]); }
-          if (json.containsKey("efergy_voltage")) { strcpy(efergy_voltage, json["efergy_voltage"]); }
+          if (jsonBuffer.containsKey("mqtt_server")) { strcpy(mqtt_server, jsonBuffer["mqtt_server"]); }
+          if (jsonBuffer.containsKey("mqtt_port")) { strcpy(mqtt_port, jsonBuffer["mqtt_port"]); }
+          if (jsonBuffer.containsKey("mqtt_username")) { strcpy(mqtt_username, jsonBuffer["mqtt_username"]); }
+          if (jsonBuffer.containsKey("mqtt_password")) { strcpy(mqtt_password, jsonBuffer["mqtt_password"]); }
+          if (jsonBuffer.containsKey("mqtt_clientname")) { strcpy(mqtt_clientname, jsonBuffer["mqtt_clientname"]); }
+          if (jsonBuffer.containsKey("mqtt_willtopic")) { strcpy(mqtt_willtopic, jsonBuffer["mqtt_willtopic"]); }
+          if (jsonBuffer.containsKey("mqtt_efergytopic")) { strcpy(mqtt_efergytopic, jsonBuffer["mqtt_efergytopic"]); }
+          if (jsonBuffer.containsKey("efergy_voltage")) { strcpy(efergy_voltage, jsonBuffer["efergy_voltage"]); }
           efergy_voltage_int = atoi(efergy_voltage);
           
           if ( efergy_voltage_int < 5 || efergy_voltage_int > 1000 ) { //Set Default Voltage if out of range
@@ -263,22 +263,21 @@ void setup() {
   //save the custom parameters to FS
   if (shouldSaveConfig) {
     Serial.println("saving config");
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
-    json["mqtt_server"] = mqtt_server;
-    json["mqtt_port"] = mqtt_port;
-    json["mqtt_username"] = mqtt_username;
-    json["mqtt_password"] = mqtt_password;
-    json["mqtt_clientname"] = mqtt_clientname;
-    json["mqtt_willtopic"] = mqtt_willtopic;
-    json["mqtt_efergytopic"] = mqtt_efergytopic;
-    json["efergy_voltage"] = efergy_voltage;
+    DynamicJsonDocument jsonBuffer(1024);
+    jsonBuffer["mqtt_server"] = mqtt_server;
+    jsonBuffer["mqtt_port"] = mqtt_port;
+    jsonBuffer["mqtt_username"] = mqtt_username;
+    jsonBuffer["mqtt_password"] = mqtt_password;
+    jsonBuffer["mqtt_clientname"] = mqtt_clientname;
+    jsonBuffer["mqtt_willtopic"] = mqtt_willtopic;
+    jsonBuffer["mqtt_efergytopic"] = mqtt_efergytopic;
+    jsonBuffer["efergy_voltage"] = efergy_voltage;
     
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) { Serial.println("failed to open config file for writing");  }
     
-    json.printTo(Serial);
-    json.printTo(configFile);
+    serializeJson(jsonBuffer, Serial);
+    serializeJson(jsonBuffer, configFile);
     configFile.close();
     //end save
     Serial.println("\nRebooting. Please Wait...");
@@ -912,27 +911,26 @@ unsigned long Efergy_pulseIn(uint8_t pin, uint8_t state, unsigned long timeout)
 
 //Permanently Update our configuration file parameters
 void UpdateConfig() {
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& json = jsonBuffer.createObject();
-  //json["mqtt_server"] = mqtt_server;
-  //json["mqtt_port"] = mqtt_port;
-  //json["mqtt_username"] = mqtt_username;
-  //json["mqtt_password"] = mqtt_password;
-  //json["mqtt_clientname"] = mqtt_clientname;
-  //json["mqtt_willtopic"] = mqtt_willtopic;
-  //json["mqtt_efergytopic"] = mqtt_efergytopic;
-  json["efergy_voltage"] = efergy_voltage_int;
+  DynamicJsonDocument jsonBuffer(1024);
+  //jsonBuffer["mqtt_server"] = mqtt_server;
+  //jsonBuffer["mqtt_port"] = mqtt_port;
+  //jsonBuffer["mqtt_username"] = mqtt_username;
+  //jsonBuffer["mqtt_password"] = mqtt_password;
+  //jsonBuffer["mqtt_clientname"] = mqtt_clientname;
+  //jsonBuffer["mqtt_willtopic"] = mqtt_willtopic;
+  //jsonBuffer["mqtt_efergytopic"] = mqtt_efergytopic;
+  jsonBuffer["efergy_voltage"] = efergy_voltage_int;
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) { Serial.println("failed to open config file for writing");  }
   Serial.println("Writing Updated Configuration");
-  json.printTo(Serial);
-  json.printTo(configFile);
+  serializeJson(jsonBuffer, Serial);
+  serializeJson(jsonBuffer, configFile);
   configFile.close();
 }
 
 
 bool TXfilterRead() {
-  DynamicJsonBuffer jsonBuffer;
+  DynamicJsonDocument jsonBuffer(1024);
   efergy_filter_type = 0;
   int TXi = 0;
   //Reset efergy_filter_list[]
@@ -942,8 +940,8 @@ bool TXfilterRead() {
       if (!configFile) { Serial.println("failed to open config file for writing");  }
       Serial.println("Writing Default Filter Configuration");
       char TXfilterdefault[] = "{\"type\":1,\"list\":[]}";
-      JsonObject& TXfilter = jsonBuffer.parseObject(TXfilterdefault); //Decode the config file into JSON config
-      TXfilter.printTo(configFile);
+      deserializeJson(jsonBuffer, TXfilterdefault); //Decode the config file into JSON config
+      serializeJson(jsonBuffer, configFile);
       configFile.close();    
     }
     File configFile = SPIFFS.open("/efergy.json", "r"); //Open the config file
@@ -951,19 +949,19 @@ bool TXfilterRead() {
       size_t size = configFile.size();
       std::unique_ptr<char[]> buf(new char[size]);
       configFile.readBytes(buf.get(), size); //Save contents of config file into buf
-      JsonObject& TXfilter = jsonBuffer.parseObject(buf.get()); //Decode the config file into JSON config
-      if (TXfilter.success()) {
-        if ( TXfilter.containsKey("type") && TXfilter.containsKey("list") ) {
+      auto error = deserializeJson(jsonBuffer, buf.get()); //Decode the config file into JSON config
+      if (!error) {
+        if ( jsonBuffer.containsKey("type") && jsonBuffer.containsKey("list") ) {
           //Read in the transmitter white/blacklist into our array
           TXi = 0;
-          while ( TXfilter["list"][TXi] > 0 ) {
-            efergy_filter_list[TXi] = TXfilter["list"][TXi];
+          while ( jsonBuffer["list"][TXi] > 0 ) {
+            efergy_filter_list[TXi] = jsonBuffer["list"][TXi];
             TXi++;
           }
           efergy_filter_list[TXi] = 0;
           
-          JsonArray& efergy_filter_list = TXfilter["list"].asArray();
-          efergy_filter_type = (int)TXfilter["type"]; //Copy our type (1 = Blacklist, 2 = Whitelist)
+          JsonArray efergy_filter_list = jsonBuffer["list"].as<JsonArray>();
+          efergy_filter_type = (int)jsonBuffer["type"]; //Copy our type (1 = Blacklist, 2 = Whitelist)
         }
       } else {
         Serial.println("failed to load json config");
@@ -1000,20 +998,20 @@ void TXfilterUpdate (bool task, unsigned long TXID) {
 
 //Write configuration to file permanently
 void TXfilterwrite() {
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& TXfilter = jsonBuffer.parseObject("{}"); //Decode the config file into JSON config
-  TXfilter["type"] = efergy_filter_type;
+  DynamicJsonDocument jsonBuffer(1024);
+  deserializeJson(jsonBuffer, "{}"); //Decode the config file into JSON config
+  jsonBuffer["type"] = efergy_filter_type;
   int TXi = 0;
-  JsonArray& list = TXfilter.createNestedArray("list");
+  JsonArray list = jsonBuffer.createNestedArray("list");
   while ( efergy_filter_list[TXi] > 0 ) {
     list.add(efergy_filter_list[TXi]);
     TXi++;
   }
   File configFile = SPIFFS.open("/efergy.json", "w"); //Open the config file
-  TXfilter.printTo(configFile);
+  serializeJson(jsonBuffer, configFile);
   if (DEBUG) { 
     Serial.print("Filter List Saved: ");
-    TXfilter.printTo(Serial);
+    serializeJson(jsonBuffer, Serial);
     Serial.println("");
   }
   configFile.close();
@@ -1051,14 +1049,14 @@ bool TXfiltercheck(unsigned long TXID) {
 }
 
 void FACTORYDEFAULT() {
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& FACTDEFAULT = jsonBuffer.parseObject("//"); //Decode the config file into JSON config
+  DynamicJsonDocument jsonBuffer(1024);
+  deserializeJson(jsonBuffer, "//"); //Decode the config file into JSON config
 
   File configFile1 = SPIFFS.open("/config.json", "w"); //Open the config file
-  FACTDEFAULT.printTo(configFile1);
+  serializeJson(jsonBuffer, configFile1);
   configFile1.close();
   File configFile2 = SPIFFS.open("/efergy.json", "w"); //Open the config file
-  FACTDEFAULT.printTo(configFile2);
+  serializeJson(jsonBuffer, configFile2);
   configFile2.close();
   WiFiManager wifiManager;
   wifiManager.resetSettings();
